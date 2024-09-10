@@ -143,5 +143,39 @@ def model_compare(X_train,X_test,y_train,y_test):
     results_df.to_csv('model_comparison_results_mean_weighted.csv',index=False)   
     
     print('Model comparison done!')
+
+def model(X_train,X_test,y_train,y_test):
+    from collections import Counter
+    counter = Counter(y_train)
+    class_weight_ratio = counter[0] / counter[1] 
+
+    parm_gird = {
+        'scale_pos_weight': [1.0,1.5,2.0],
+        'n_estimators': [1000,1200,1500],
+        'learning_rate': [0.001,0.01,0.05],
+        'max_depth': [3, 4 ,5 ],
+        'subsample': [0.5,0.6,0.7],
+        'colsample_bytree': [0.8, 0.9, 1.0],
+        'min_child_weight': [1, 3, 5]
+    }
+
+    model = xgb.XGBClassifier()
+    model.fit(X_train,y_train)
+    grid_search = GridSearchCV(model,parm_gird,cv=5,n_jobs=-1,scoring='accuracy')
+    grid_search.fit(X_train,y_train)
+    print(f'Best parameters: {grid_search.best_params_}')
+    print(f'Best score: {grid_search.best_score_}')
+    model = grid_search.best_estimator_
+    predictions = model.predict(X_test)
+    accuracy = accuracy_score(y_test,predictions)
+    print(f'Accuracy: {accuracy:.4f}')
+    report = classification_report(y_test,predictions,output_dict=True)
+    print(report)
+    confusion = confusion_matrix(y_test,predictions)
+    print(confusion)
+
+    return model
+
 X_train,X_test,y_train,y_test = preprocessing()
-model_compare(X_train,X_test,y_train,y_test)
+# model_compare(X_train,X_test,y_train,y_test)
+model = model(X_train,X_test,y_train,y_test)
