@@ -9,6 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 import warnings
 from catboost import CatBoostClassifier
+from imblearn.over_sampling import SMOTE
 
 warnings.filterwarnings('ignore')
 
@@ -31,19 +32,22 @@ def preprocessing():
     # datasets['age_binned'] = datasets['age_binned'].cat.add_categories(['missing']).fillna('missing')
     # datasets = datasets.drop('age',axis=1)
 
-    # le = LabelEncoder()
-    # le_columns = ['gender','device_type','ad_position','browsing_history','time_of_day']
-    # for columns in le_columns:
-    #     datasets[columns] = le.fit_transform(datasets[columns])
+    le = LabelEncoder()
+    le_columns = ['gender','device_type','ad_position','browsing_history','time_of_day']
+    for columns in le_columns:
+        datasets[columns] = le.fit_transform(datasets[columns])
 
     X = datasets.drop('click',axis=1)
     y = datasets['click']
     X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.2,random_state=0) 
 
-    # sc = StandardScaler()
-    # X_train = sc.fit_transform(X_train)
-    # X_test = sc.transform(X_test)
-    # print('Data preprocessing done!')
+    sc = StandardScaler()
+    X_train = sc.fit_transform(X_train)
+    X_test = sc.transform(X_test)
+
+    sm = SMOTE(random_state=0)
+    X_train,y_train = sm.fit_resample(X_train,y_train)
+    print('Data preprocessing done!')
     
 
     return X_train,X_test,y_train,y_test
@@ -57,51 +61,49 @@ def model_compare(X_train,X_test,y_train,y_test):
 
     cat_features =['gender','device_type','ad_position','browsing_history','time_of_day'] 
     models = {
-        # 'RandomForest': RandomForestClassifier(),
-        # 'SVM': SVC(),
-        #  'XGBoost': xgb.XGBClassifier()
-        #  ,
-        # 'LogisticRegression': LogisticRegression(),
-        # 'KNN': KNeighborsClassifier(),
-         'CatBoost': CatBoostClassifier()
+        'RandomForest': RandomForestClassifier(),
+        'SVM': SVC(),
+         'XGBoost': xgb.XGBClassifier(),
+        'LogisticRegression': LogisticRegression(),
+        'KNN': KNeighborsClassifier(),
+        #  'CatBoost': CatBoostClassifier()
     }
 
     param_grids = {
-        # 'RandomForest': {
-        #     'class_weight': ['balanced', 'balanced_subsample'],
-        #     'n_estimators': [200, 300, 400,450, 500],
-        #     'max_depth': [10, 20, 30, None],
-        #     'min_samples_split': [2, 5, 10],
-        #     'min_samples_leaf': [1, 2, 4]
-        # },
-        # 'SVM': {
-        #     'C': [0.1, 1, 10, 100],
-        #     'kernel': ['linear', 'poly', 'rbf', 'sigmoid'],
-        #     'gamma': ['scale', 'auto']
-        # },
-        # 'XGBoost': {
-        #     'scale_pos_weight': [class_weight_ratio],
-        #     'n_estimators': [300, 400, 500,1000],
-        #     'learning_rate': [0.01,0.05, 0.1, 0.2],
-        #     'max_depth': [3, 5, 7],
-        #     'subsample': [0.6,0.7, 0.8],
-        #     'colsample_bytree': [0.6, 0.8, 1.0]
-        # },
-        # 'LogisticRegression': {
-        #     'C': [0.1, 1, 10, 100],
-        #     'solver': ['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga'],
-        #     'penalty': ['l1', 'l2', 'elasticnet', 'none']
-        # },
-        # 'KNN': {
-        #     'n_neighbors': [3, 5, 7, 9],
-        #     'weights': ['uniform', 'distance'],
-        #     'algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute']
-          'CatBoost': {
-              'iterations': [500],
-                'learning_rate': [0.1],
-                'depth': [6]
+        'RandomForest': {
+            'class_weight': ['balanced', 'balanced_subsample'],
+            'n_estimators': [200, 300, 400,450, 500],
+            'max_depth': [10, 20, 30, None],
+            'min_samples_split': [2, 5, 10],
+            'min_samples_leaf': [1, 2, 4]
+        },
+        'SVM': {
+            'C': [0.1, 1, 10, 100],
+            'kernel': ['linear', 'poly', 'rbf', 'sigmoid'],
+            'gamma': ['scale', 'auto']
+        },
+        'XGBoost': {
+            'scale_pos_weight': [class_weight_ratio],
+            'n_estimators': [300, 400, 500,1000],
+            'learning_rate': [0.01,0.05, 0.1, 0.2],
+            'max_depth': [3, 5, 7],
+            'subsample': [0.6,0.7, 0.8],
+            'colsample_bytree': [0.6, 0.8, 1.0]
+        },
+        'LogisticRegression': {
+            'C': [0.1, 1, 10, 100],
+            'solver': ['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga'],
+            'penalty': ['l1', 'l2', 'elasticnet', 'none']
+        },
+        'KNN': {
+            'n_neighbors': [3, 5, 7, 9],
+            'weights': ['uniform', 'distance'],
+            'algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute']}
+        # 'CatBoost': {
+        #   'iterations': [500],
+        #   'learning_rate': [0.1],
+        #   'depth': [6]
         }
-    }
 
     best_models = {}
     results = []
@@ -109,7 +111,7 @@ def model_compare(X_train,X_test,y_train,y_test):
     for name,model in models.items():
         print(f'Training {name}...')
         grid_search = GridSearchCV(model,param_grids[name],cv=5,n_jobs=-1,scoring='accuracy')
-        grid_search.fit(X_train,y_train,cat_features=cat_features,eval_set=(X_test, y_test), early_stopping_rounds=10)
+        grid_search.fit(X_train,y_train)
         best_models[name] = grid_search.best_estimator_
         print(f'{name} training done!')
 
@@ -138,7 +140,7 @@ def model_compare(X_train,X_test,y_train,y_test):
             'confusion_matrix': confusion.tolist()
         })
     results_df = pd.DataFrame(results)
-    results_df.to_csv('model_comparison_results_mean.csv',index=False)   
+    results_df.to_csv('model_comparison_results_mean_weighted.csv',index=False)   
     
     print('Model comparison done!')
 X_train,X_test,y_train,y_test = preprocessing()
