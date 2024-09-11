@@ -17,6 +17,8 @@ def preprocessing():
     # Load the cleaned dataset
     datasets = pd.read_csv('dataset/ad_click_dataset.csv')
     datasets = datasets.drop(['id','full_name'],axis=1)
+    datasets = datasets.dropna(subset=['age'])
+    print(datasets['age'].isnull().sum())
 
     # Fill missing values
     for columns in datasets.columns:
